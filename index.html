@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slman Al-Odani · Portfolio</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #ffffff; --text: #1d1d1f; --muted: #6b6b70;
+    --line: #e4e2dd; --accent: #c2410c; --accent-soft: #fdeee6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141416; --card: #1d1d20; --text: #ededed; --muted: #9a9aa0;
+      --line: #2c2c30; --accent: #fb923c; --accent-soft: #2a1d15;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 56px 16px 64px; }
+  h1 { font-size: clamp(1.8rem, 5vw, 2.4rem); margin: 0 0 6px; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  input {
+    width: 100%; padding: 12px 14px; font: inherit; color: var(--text);
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    margin-bottom: 18px; outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  li a {
+    display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    color: inherit; text-decoration: none; transition: border-color .15s, transform .15s;
+  }
+  li a:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .icon {
+    flex: none; width: 40px; height: 40px; border-radius: 8px;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-size: 11px; font-weight: 700;
+  }
+  .name { font-weight: 600; overflow-wrap: anywhere; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .grow { flex: 1; min-width: 0; }
+  .dl { color: var(--accent); font-size: 14px; white-space: nowrap; }
+  h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 32px 0 10px; display: flex; gap: 8px; align-items: baseline;
+  }
+  h2 .count { font-weight: 400; letter-spacing: 0; text-transform: none; }
+  #list > section:first-child h2 { margin-top: 8px; }
+  .msg { color: var(--muted); padding: 24px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Personal Portfolio</h1>
+  <p class="sub">Slman Al-Odani · NHL Stenden · click a document to open it</p>
+  <input id="q" type="search" placeholder="Search documents…" aria-label="Search files">
+  <div id="list"></div>
+  <p id="msg" class="msg">Loading…</p>
+</main>
+<script>
+  // Lists every PDF in this GitHub repo automatically.
+  const OWNER = "slmanalodani";
+  const REPO  = "My_Website";
+
+  const list = document.getElementById("list");
+  const msg  = document.getElementById("msg");
+  const q    = document.getElementById("q");
+  let files  = [];
+
+  const pretty = p => p.split("/").pop().replace(/\.pdf$/i, "").replace(/[_-]+/g, " ");
+  const size = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+
+  // Top-level folder = section (e.g. "Year 1", "Year 2"). PDFs not in a folder go under "General".
+  const groupOf = p => p.includes("/") ? p.split("/")[0].replace(/[_-]+/g, " ") : "General";
+
+  function render() {
+    const term = q.value.trim().toLowerCase();
+    const shown = files.filter(f => f.path.toLowerCase().includes(term));
+    const groups = {};
+    for (const f of shown) (groups[groupOf(f.path)] ||= []).push(f);
+    const names = Object.keys(groups).sort((a, b) =>
+      a === "General" ? 1 : b === "General" ? -1 : a.localeCompare(b, undefined, { numeric: true }));
+
+    list.innerHTML = "";
+    for (const name of names) {
+      const sec = document.createElement("section");
+      const h = document.createElement("h2");
+      h.textContent = name;
+      const c = document.createElement("span");
+      c.className = "count";
+      c.textContent = "· " + groups[name].length + (groups[name].length === 1 ? " document" : " documents");
+      h.appendChild(c);
+      const ul = document.createElement("ul");
+      for (const f of groups[name]) {
+        const parts = f.path.split("/");
+        const sub = parts.length > 2 ? parts.slice(1, -1).join(" / ") + " · " : "";
+        const li = document.createElement("li");
+        li.innerHTML = `<a href="${parts.map(encodeURIComponent).join("/")}" target="_blank" rel="noopener">
+            <span class="icon">PDF</span>
+            <span class="grow"><div class="name"></div><div class="meta"></div></span>
+            <span class="dl">Open ↗</span></a>`;
+        li.querySelector(".name").textContent = pretty(f.path);
+        li.querySelector(".meta").textContent = sub + size(f.size);
+        ul.appendChild(li);
+      }
+      sec.append(h, ul);
+      list.appendChild(sec);
+    }
+    msg.textContent = files.length === 0 ? "No PDFs uploaded yet."
+                    : shown.length === 0 ? "No documents match your search." : "";
+  }
+
+  (async () => {
+    try {
+      const repo = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}`).then(r => r.json());
+      const branch = repo.default_branch || "main";
+      const tree = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/git/trees/${branch}?recursive=1`).then(r => r.json());
+      files = (tree.tree || [])
+        .filter(t => t.type === "blob" && /\.pdf$/i.test(t.path))
+        .sort((a, b) => a.path.localeCompare(b.path));
+      render();
+    } catch (e) {
+      msg.textContent = "Couldn't load the file list. Please refresh the page.";
+    }
+  })();
+
+  q.addEventListener("input", render);
+</script>
+</body>
+</html>
